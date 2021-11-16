@@ -1,4 +1,3 @@
-from django.db.models.base import Model
 from django.forms import ModelForm
 
 from .models import Comment, Post
@@ -8,7 +7,6 @@ class PostForm(ModelForm):
     class Meta:
         model = Post
         fields = ('text', 'group', 'image',)
-        # fields = ('text', 'group')
         labels = {
             'text': 'Текст',
             'group': 'Группа'

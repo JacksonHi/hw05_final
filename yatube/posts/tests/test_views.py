@@ -1,4 +1,3 @@
-import shutil
 import tempfile
 from time import sleep
 
@@ -7,7 +6,6 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.http import response
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -47,13 +45,13 @@ class TaskPagesTests(TestCase):
         # без него записи в рандомном порядке каждый раз появляются
         sleep(0.1)
 
-        small_gif = (            
-             b'\x47\x49\x46\x38\x39\x61\x02\x00'
-             b'\x01\x00\x80\x00\x00\x00\x00\x00'
-             b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
-             b'\x00\x00\x00\x2C\x00\x00\x00\x00'
-             b'\x02\x00\x01\x00\x00\x02\x02\x0C'
-             b'\x0A\x00\x3B'
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
         )
         uploaded = SimpleUploadedFile(
             name='small.gif',
@@ -240,13 +238,13 @@ class TaskPagesTests(TestCase):
         )
         response_before_dropping_cache = self.authorized_client.get(
             reverse('posts:index'))
-        self.assertEqual(response.content,
-            response_before_dropping_cache.content)
+        self.assertEqual(
+            response.content, response_before_dropping_cache.content)
         cache.clear()
         response_after_dropping_cache = self.authorized_client.get(
             reverse('posts:index'))
-        self.assertNotEqual(response.content,
-            response_after_dropping_cache.content)
+        self.assertNotEqual(
+            response.content, response_after_dropping_cache.content)
 
     def test_authorized_user_follow(self):
         """Авторизованный пользователь может подписаться и отписаться"""
