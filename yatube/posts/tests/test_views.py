@@ -265,7 +265,6 @@ class TaskPagesTests(TestCase):
         self.assertEqual(follow_post.author, self.user)
         self.assertEqual(follow_post.group, self.group)
 
-
     def test_unfollowing_no_post(self):
         """Новая запись пользователя не появляется в ленте тех,
         кто не подписан на него."""
