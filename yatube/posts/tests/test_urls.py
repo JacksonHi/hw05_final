@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Group, Post
+from ..models import Group, Post, Comment
 
 User = get_user_model()
 
@@ -38,6 +38,12 @@ class StaticURLTests(TestCase):
             group=cls.group,
             author=cls.user,
         )
+        cls.comment = Comment.objects.create(
+            post=cls.post,
+            author=cls.user,
+            text='Тестовый коментарий',
+            created='23.12.2020',
+        )
         cls.urls_list_unauthorized_user = {
             '/': 'index.html',
             f'/group/{cls.group.slug}/': 'group.html',
@@ -45,15 +51,13 @@ class StaticURLTests(TestCase):
             f'/posts/{cls.post.id}/': 'post_detail.html'
         }
         cls.urls_list_authorized_user = {
-            reverse('posts:post_create'): 'create_post.html'
+            '/create/': 'create_post.html',
+            f'/posts/{cls.post.id}/edit/': 'create_post.html',
+            '/follow/': 'follow.html'
         }
 
     def test_homepage(self):
-        # Отправляем запрос к главной странице через client,
-        # созданный в setUp()
         response = StaticURLTests.guest_client.get('/')
-        # Утверждаем, что для прохождения теста код должен быть равен 200
-        # Насчет HTTPStatus тоже не понял, чем он лучше явного указания кода?
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_author(self):
@@ -64,11 +68,11 @@ class StaticURLTests(TestCase):
         response = StaticURLTests.guest_client.get('/about/tech/')
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
-    def test_urls_all_user(self):
+    def test_urls_all_user(self):  # !
         """Доступность страниц для неавторизованных"""
         for adress in StaticURLTests.urls_list_unauthorized_user:
             with self.subTest(adress=adress):
-                response = StaticURLTests.guest_client.get(adress)
+                response = self.guest_client.get(adress)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_urls_authorized_user(self):
@@ -88,11 +92,11 @@ class StaticURLTests(TestCase):
         )
         self.assertRedirects(response, f'{login}?next={post_create}')
 
-    def test_urls_redirect_not_author(self):
+    def test_urls_redirect_not_author(self):  # !
         """Переадресация не автора поста"""
         post_id = StaticURLTests.post.id
         post_detail = f'/posts/{post_id}/'
-        response = StaticURLTests.authorized_client_without_posts.get(
+        response = self.authorized_client_without_posts.get(
             f'/posts/{post_id}/edit/',
             follow=True
         )

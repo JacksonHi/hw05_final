@@ -72,6 +72,20 @@ class TaskPagesTests(TestCase):
             image=uploaded
         )
 
+    def posts_context(self, response):
+        post = self.post
+        response_post = response.context['page_obj'][0]
+        post_author = response_post.author
+        post_group = response_post.group
+        post_text = response_post.text
+        post_pub_date = response_post.pub_date
+        post_image = response_post.image
+        self.assertEqual(post_author, post.author)
+        self.assertEqual(post_group, post.group)
+        self.assertEqual(post_text, post.text)
+        self.assertEqual(post_pub_date, post.pub_date)
+        self.assertEqual(post_image, post.image)
+
     # Проверка namespace:name
     def test_pages_user_correct_template(self):
         """Адрес использует соответствующий шаблон"""
@@ -160,20 +174,7 @@ class TaskPagesTests(TestCase):
     def test_index_context(self):
         """Шаблон index сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse('posts:index'))
-        # Взяли первый элемент из списка и проверили, что его содержание
-        # совпадает с ожидаемым
-        post = self.post
-        response_post = response.context['page_obj'][0]
-        post_author = response_post.author
-        post_group = response_post.group
-        post_text = response_post.text
-        post_pub_date = response_post.pub_date
-        post_image = response_post.image
-        self.assertEqual(post_author, post.author)
-        self.assertEqual(post_group, post.group)
-        self.assertEqual(post_text, post.text)
-        self.assertEqual(post_pub_date, post.pub_date)
-        self.assertEqual(post_image, post.image)
+        self.posts_context(response)
 
     # Проверяем, что словарь context страницы task/test-slug
     # содержит ожидаемые значения
@@ -193,40 +194,19 @@ class TaskPagesTests(TestCase):
         """Шаблон group_posts сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:group_post', args=[self.group.slug]))
-        response_post = response.context['page_obj'][0]
-        post = self.post
-        post_author = response_post.author
-        post_group_title = response_post.group.title
-        post_text = response_post.text
-        post_pub_date = response_post.pub_date
-        post_image = response_post.image
-        self.assertEqual(post_author, post.author)
-        self.assertEqual(post_group_title, post.group.title)
-        self.assertEqual(post_text, post.text)
-        self.assertEqual(post_pub_date, post.pub_date)
-        self.assertEqual(post_image, post.image)
+        self.posts_context(response)
 
     # profile + paginator
     def test_profile_context(self):
         """Шаблон profile сформирован с правильным контекстом."""
         response = self.authorized_client.get(
-            reverse('posts:profile', args=[self.user.username]))
-        response_page_obj = response.context['page_obj'][0]
+            reverse('posts:profile', args=[self.user.username])
+        )
         response_author = response.context['author']
-        post = self.post
         author = self.user
-        post_author = response_author.username
         post_count = response_author.posts.count()
-        post_group_title = response_page_obj.group.title
-        post_text = response_page_obj.text
-        post_pub_date = response_page_obj.pub_date
-        post_image = response_page_obj.image
-        self.assertEqual(post_author, author.username)
         self.assertEqual(post_count, author.posts.count())
-        self.assertEqual(post_group_title, post.group.title)
-        self.assertEqual(post_text, post.text)
-        self.assertEqual(post_pub_date, post.pub_date)
-        self.assertEqual(post_image, post.image)
+        self.posts_context(response)
 
     def test_cache_index(self):
         """Проверка работы кэша на index"""
@@ -246,34 +226,63 @@ class TaskPagesTests(TestCase):
         self.assertNotEqual(
             response.content, response_after_dropping_cache.content)
 
+    def follow(self, user, sum):
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[user]))
+        response = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(response, sum)
+
     def test_authorized_user_follow(self):
-        """Авторизованный пользователь может подписаться и отписаться"""
+        """Авторизованный пользователь может подписаться"""
+        user = self.user_2.username
+        self.follow(user, 1)
+        # не может подписаться второй раз
+        self.follow(user, 1)
+
+    def test_no_authorized_user(self):
         # не авторизованный не может подписаться
         self.unauthorized_client.get(
             reverse('posts:profile_follow', args=[self.user.username]))
         response = Follow.objects.filter(user=self.user).count()
         self.assertEqual(response, 0)
-        # нельзя подписаться на себя
+
+    def test_unfollow(self):
+        """проверка отписки"""
+        user = self.user_2.username
+        self.follow(user, 1)
         self.authorized_client.get(
-            reverse('posts:profile_follow', args=[self.user.username]))
+            reverse('posts:profile_unfollow', args=[user]))
         response = Follow.objects.filter(user=self.user).count()
         self.assertEqual(response, 0)
-        # подписка работает, пост появляется у подписанного
-        self.authorized_client.get(
-            reverse('posts:profile_follow', args=[self.user_2.username]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, 1)
-        # не может подписаться второй раз
-        self.authorized_client.get(
-            reverse('posts:profile_follow', args=[self.user_2.username]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, 1)
+
+    def follow_index_post_ok(self):
+        """пост появляется у подписанного"""
+        user = self.user_2.username
+        self.follow(user, 1)
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        follow_post = response.context['page_obj'][0]
+        self.assertEqual(follow_post.text, self.post.text)
+        self.assertEqual(follow_post.author, self.user)
+        self.assertEqual(follow_post.group, self.group)
+
 
     def test_unfollowing_no_post(self):
         """Новая запись пользователя не появляется в ленте тех,
         кто не подписан на него."""
         response = self.authorized_client.get(reverse('posts:follow_index'))
         self.assertEqual(len(response.context['page_obj']), 0)
+
+        # эти тесты выкинуть или "приютить"?
+        # нельзя подписаться на себя
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[self.user.username]))
+        response = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(response, 0)
+        # не может подписаться второй раз
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[self.user_2.username]))
+        response = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(response, 1)
 
 
 class PaginatorTests(TestCase):

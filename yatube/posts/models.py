@@ -1,13 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.db.models.constraints import UniqueConstraint
 
 User = get_user_model()
 
 
 class Group(models.Model):
     title = models.CharField('Заглавие', max_length=200)
-    slug = models.SlugField(unique=True)
-    description = models.TextField()
+    slug = models.SlugField('Слаг', unique=True)
+    description = models.TextField('описание')
 
     def __str__(self):
         return self.title
@@ -61,7 +62,7 @@ class Comment(models.Model):
         related_name='comments'
     )
     text = models.TextField('Текст', help_text='Введите текст комментария')
-    created = models.DateTimeField('дата пупбликации', auto_now_add=True)
+    created = models.DateTimeField('дата публикации', auto_now_add=True)
 
     class Meta:
         ordering = ['-created']
@@ -79,5 +80,12 @@ class Follow(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
         related_name='following'
     )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=['user', 'author'], name='unique_follow')
+        ]
