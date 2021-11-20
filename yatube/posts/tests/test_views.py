@@ -230,9 +230,10 @@ class TaskPagesTests(TestCase):
 
     def test_authorized_user_follow(self):
         """Авторизованный пользователь может подписаться"""
-        self.authorized_client.get( 
-            reverse('posts:profile_follow', args=[self.user_2.username])) 
-        amount = Follow.objects.filter(user=self.user, author=self.user_2).count() 
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[self.user_2.username]))
+        amount = Follow.objects.filter(
+            user=self.user, author=self.user_2).count()
         self.assertEqual(amount, 1)
 
     def test_no_authorized_user(self):
@@ -278,7 +279,7 @@ class TaskPagesTests(TestCase):
         amount = Follow.objects.filter(user=self.user).count()
         self.assertEqual(amount, 0)
 
-    def test_can_not_subscribe_a_second_time(self):  # !
+    def test_can_not_subscribe_a_second_time(self):
         """не может подписаться второй раз"""
         self.authorized_client.get(
             reverse('posts:profile_follow', args=[self.user_2.username]))
