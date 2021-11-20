@@ -30,6 +30,8 @@ class TaskPagesTests(TestCase):
         cls.user_2 = User.objects.create_user(username='TestUser_2')
         cls.authorized_client = Client()
         cls.authorized_client.force_login(cls.user)
+        cls.authorized_client_2 = Client()
+        cls.authorized_client_2.force_login(cls.user_2)
         cls.unauthorized_client = Client()
         cls.group_2 = Group.objects.create(
             title='Заглавие_2',
@@ -226,44 +228,42 @@ class TaskPagesTests(TestCase):
         self.assertNotEqual(
             response.content, response_after_dropping_cache.content)
 
-    def follow(self, user, sum):
-        self.authorized_client.get(
-            reverse('posts:profile_follow', args=[user]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, sum)
-
     def test_authorized_user_follow(self):
         """Авторизованный пользователь может подписаться"""
-        user = self.user_2.username
-        self.follow(user, 1)
-        # не может подписаться второй раз
-        self.follow(user, 1)
+        self.authorized_client.get( 
+            reverse('posts:profile_follow', args=[self.user_2.username])) 
+        amount = Follow.objects.filter(user=self.user, author=self.user_2).count() 
+        self.assertEqual(amount, 1)
 
     def test_no_authorized_user(self):
-        # не авторизованный не может подписаться
+        """не авторизованный не может подписаться"""
         self.unauthorized_client.get(
             reverse('posts:profile_follow', args=[self.user.username]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, 0)
+        amount = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(amount, 0)
 
     def test_unfollow(self):
         """проверка отписки"""
         user = self.user_2.username
-        self.follow(user, 1)
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[user]))
         self.authorized_client.get(
             reverse('posts:profile_unfollow', args=[user]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, 0)
+        amount = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(amount, 0)
 
     def follow_index_post_ok(self):
         """пост появляется у подписанного"""
-        user = self.user_2.username
-        self.follow(user, 1)
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[self.user_2.username]))
+        post = Post.objects.create(
+            text='тестовый текст',
+            author=self.user_2,
+            group=self.group,
+        )
         response = self.authorized_client.get(reverse('posts:follow_index'))
         follow_post = response.context['page_obj'][0]
-        self.assertEqual(follow_post.text, self.post.text)
-        self.assertEqual(follow_post.author, self.user)
-        self.assertEqual(follow_post.group, self.group)
+        self.assertEqual(follow_post, post)
 
     def test_unfollowing_no_post(self):
         """Новая запись пользователя не появляется в ленте тех,
@@ -271,17 +271,21 @@ class TaskPagesTests(TestCase):
         response = self.authorized_client.get(reverse('posts:follow_index'))
         self.assertEqual(len(response.context['page_obj']), 0)
 
-        # эти тесты выкинуть или "приютить"?
-        # нельзя подписаться на себя
+    def test_i_not_can_subscribe_to_myself(self):
+        """нельзя подписаться на себя"""
         self.authorized_client.get(
             reverse('posts:profile_follow', args=[self.user.username]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, 0)
-        # не может подписаться второй раз
+        amount = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(amount, 0)
+
+    def test_can_not_subscribe_a_second_time(self):  # !
+        """не может подписаться второй раз"""
         self.authorized_client.get(
             reverse('posts:profile_follow', args=[self.user_2.username]))
-        response = Follow.objects.filter(user=self.user).count()
-        self.assertEqual(response, 1)
+        self.authorized_client.get(
+            reverse('posts:profile_follow', args=[self.user_2.username]))
+        amount = Follow.objects.filter(user=self.user).count()
+        self.assertEqual(amount, 1)
 
 
 class PaginatorTests(TestCase):
@@ -294,7 +298,6 @@ class PaginatorTests(TestCase):
         cls.group = Group.objects.create(
             slug='test-slug'
         )
-        # Почему так будет лучше? Ведь редыдущий вариант выглядит проще
         number_post = 13
         posts = [
             Post(
